@@ -1,62 +1,122 @@
-import numpy as np
-import pandas as pd
+# -*- coding: utf-8 -*- #
+
+import os
+import shutil
+import sys
 from pathlib import Path
 
+# from config import *
 
-def write_html(df, year):
-    df = df[df['Read']==year]
-    df['html'] = '<li><i>'+df['Title']+'</i> by '+df['Author']+'</li>'
+def delete_folder_contents(dst):
+    """Delete all contents of dst.
+    """
+    print('\tDeleting {}...'.format(dst))
+    for item in os.listdir(dst):
+        s = os.path.join(dst, item)
+        # print('\t{}                  '.format(s))#, end='\r')
+        if os.path.isdir(s):
+            shutil.rmtree(s)
+        else:
+            os.remove(s)
 
-    html_file = open('html/'+str(year)+'_books_html.txt', 'w')
-    for row in range(df.shape[0]):
-        book = df.loc[df.index[row],'html']
-        html_file.write("%s\n" % book)
-    html_file.close()
 
-    print('In {} I read {} books.'.format(str(year),str(df.shape[0])))
+def copytree(src, dst, symlinks=False, ignore=None):
+    """Copy directory and all contents from src to dst.
+    """
+    print('\tCopying {}'.format(dst))
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        # print('\t{}                  '.format(d))#, end='\r')
+        if os.path.isdir(s):
+            shutil.copytree(s, d, symlinks, ignore)
+        else:
+            shutil.copy2(s, d)
 
-    # forecast reading
-    bookForecast = 0
-    from datetime import datetime
-    if year==datetime.now().year:
-        booksToDate = df.dropna(how='any',axis=0).shape[0]
-        dayOfYear = datetime.now().timetuple().tm_yday
-        bookForecast = booksToDate / dayOfYear * 365
-        print('...on track to read {} books in {}'.format(int(bookForecast), year))
-    return bookForecast
+
+def copy_file(src, dst):
+    """Copy file from src to dst.
+    """
+    shutil.copy(src, dst)
  
 
-def plot_books(df, years, bookForecast):
-    import matplotlib.pyplot as plt
-    number = []
-    for year in years:
-        df_count = df[df['Read']==year]
-        number.append(df_count.shape[0])
+def insert_text_in_file(original, add, insertionPoint):
+    """Inserts text from add into original at insertionPoint    
+    """
+    # read original 
+    f = open(original, "r")
+    contents = f.readlines()
+    f.close()
 
-    fig, ax = plt.subplots()
-    ax.axis('off')
-    plt.bar(years[-1], bookForecast, color='#ffffff', edgecolor='#909090')
-    plt.bar(years, number, color='#3377b3')
-    for item in range(0,len(years)):
-        #plt.text(years[item], number[item]+3, str(number[item]),ha='center',color='#63666a',fontname='Gill Sans MT',fontsize=14)
-        plt.text(years[item], -6, str(years[item]),ha='center',color='#63666a',fontname='Gill Sans MT',fontsize=14)
-    fig.set_size_inches(12, 4)
-    fig.savefig(str(GitHubPath)+'/mkudija.github.io/images/book_plot.png', bbox_inches='tight')
+    # read addition
+    # f = open(add, "r")
+    # contentsAdd = f.readlines()
+    # f.close()
+
+    # get index of insertionPoint
+    i=0
+    for line in contents:
+        if insertionPoint in line:
+            index = i
+        i+=1
+
+    # add text
+    contents[index:index] = add
+
+    # write original with addition
+    f = open(original, "w")
+    contents = "".join(contents)
+    f.write(contents)
+    f.close()
 
 
+def replace_text_in_file(original, add, replaceText):
+    """Replaces replaceText with add in original file.
+    """
+    with open(original, 'r') as f:
+      content = f.read()
+
+    content = content.replace(replaceText, add)
+
+    with open(original, 'w') as f:
+      f.write(content)
+
+
+
+def construct_index(photos, pathOutput):
+    """Copies index.html to pathOutput, and constructs page using photos.
+    """
+
+    # copy index from template
+    copy_file('theme/index.html', pathOutput)
+
+    i = 999
+    for photo in photos:
+        print(str(photo))
+        original = pathOutput/'index.html'
+        name = str(photo).split('-')[-1].split('.')[0]
+        date = str(photo).split('-')[0].split('/')[-1]+'-'+str(photo).split('-')[1]
+      
+        add = '<article class="thumb">\n\
+                <a href="'+str(photo)+'" class="image"><img src="'+str(photo).replace(' ','%20')+'" alt="" /></a>\n\
+                <h2>'+name+' ('+date+')</h2>\n\
+                </article>'
+
+        insertionPoint = '<!-- #PHOTOS'+str(i)+'# -->'
+        # insert_text_in_file(original, add=add, insertionPoint=insertionPoint)
+        replace_text_in_file(original, add=add, replaceText=insertionPoint)
+
+        i-=1
+
+ 
+
+# --------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    homePath = Path.cwd().home()
-    for parent in Path.cwd().parents:
-        if str(parent)[-6:]=='GitHub':
-            GitHubPath = parent
 
-    df = pd.read_excel(GitHubPath/'mkudija.github.io/reading/reading.xlsx',sheet_name='Books')
+    photos = list(Path('images/').glob('*'))
+  
+    pathOutput = Path('')
+    print('Building index.html...')
+    construct_index(photos, pathOutput)
 
-    years = df['Read'].unique()
-
-    for year in years:
-        bookForecast = write_html(df, year)
-    
-    plot_books(df, years, bookForecast)
-
-    print('Done.')
+    print('Done.\n')
