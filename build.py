@@ -98,7 +98,7 @@ def construct_index(photos, pathOutput):
         date = str(photo).split('-')[0].split('/')[-1]+'-'+str(photo).split('-')[1]
       
         add = '<article class="thumb">\n\
-                <a href="'+str(photo)+'" class="image"><img src="'+str(photo).replace(' ','%20')+'" alt="" /></a>\n\
+                <a href="'+str(photo)+'" class="image"><img src="'+str(photo).replace(' ','%20').replace('images','images_low-res')+'" alt="" /></a>\n\
                 <h2>'+name+' ('+date+')</h2>\n\
                 </article>'
 
@@ -109,6 +109,29 @@ def construct_index(photos, pathOutput):
         i-=1
 
  
+def resize_images(dst, height):
+    """Resizes all images in dst by factor.
+    """
+    from PIL import Image
+    from glob import glob
+    import glob
+
+    img_files = os.listdir(dst)  # list all files and directories
+
+    i=1
+    for file in img_files:
+        print('\t{} images resized.  '.format(i), end='\r')
+        foo = Image.open(dst/Path(file))
+        size0 = foo.size[0]
+        size1 = foo.size[1]
+        resize_factor = height/size1
+        size0_new = int(size0*resize_factor)
+        size1_new = int(size1*resize_factor)
+        foo = foo.resize((size0_new,size1_new),Image.ANTIALIAS)
+        foo.save(dst/Path(file), optimize=True, quality=95)
+        i+=1
+    print('\t{} images resized.  '.format(i), end='\r')
+
 
 # --------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -118,5 +141,6 @@ if __name__ == "__main__":
     pathOutput = Path('')
     print('Building index.html...')
     construct_index(photos, pathOutput)
-
-    print('Done.\n')
+    copytree(src='images', dst='images_low-res', symlinks=False, ignore=None)
+    resize_images(dst='images_low-res', height=250)
+    print('\nDone.\n')
